@@ -32,6 +32,18 @@ npm run dev       # terminal 2: http://localhost:3000
 | `npm run db` | Arranca `mongod` (busca la versión más reciente instalada; `MONGO_DBPATH` cambia la carpeta de datos) |
 | `npm run db:seed` | Ejecuta `pos_minorista_mongodb.js` con mongosh (incluido como dependencia) |
 
+## Categorías de colecciones
+Las 14 colecciones de `pos_minorista` se dividen en 4 categorías. Están definidas en un solo lugar,
+`lib/colecciones.js`, con la descripción de cada colección; de ahí salen los nombres, el orden y los
+grupos que se ven en la app. `lib/admin-config.js` sigue la misma división (un bloque por categoría).
+
+| Categoría | Colecciones | Qué agrupa |
+|---|---|---|
+| **Ventas y caja** | ventas, devoluciones, turnos, cajas, clientes | Cobros, devoluciones, turnos y el dinero de cada caja |
+| **Productos** | articulos, categorias, inventario, almacenes, mermas | El catálogo, dónde se guarda y cuánto queda |
+| **Compras** | pedidos, proveedores | A quién se le compra y qué se ha pedido |
+| **Personal** | empleados, roles | La plantilla y los puestos de trabajo |
+
 ## Vistas
 
 Todas se navegan desde la barra lateral, que se puede contraer a íconos. Hay modo claro y oscuro
@@ -170,7 +182,8 @@ lib/
 ├── inventario.js  empleados.js  reportes.js
 ├── pos.js                        # lectura del $jsonSchema y conversión BSON -> JSON
 ├── admin.js                      # crear/editar/eliminar con embebidos, referencias e integridad
-├── admin-config.js               # referencias, estados y nombres de cada colección
+├── colecciones.js                # catálogo: categorías, colecciones y descripciones
+├── admin-config.js               # referencias, estados y nombres de cada colección (por categoría)
 ├── api.js                        # llamadas desde el navegador
 ├── format.js                     # formato de montos, fechas y etiquetas
 └── http.js                       # errores -> respuestas HTTP

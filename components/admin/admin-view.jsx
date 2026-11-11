@@ -3,7 +3,20 @@
 import { startTransition, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowDownIcon, ArrowUpIcon, PencilIcon, PlusIcon, SearchIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  FolderIcon,
+  PackageIcon,
+  PencilIcon,
+  PlusIcon,
+  SearchIcon,
+  ShoppingCartIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
+  TruckIcon,
+  UsersIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,10 +33,19 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import * as api from '@/lib/api';
 import { collectionLabel, fieldLabel, formatFechaHora, formatMoney, groupCollections } from '@/lib/format';
+import { infoColeccion } from '@/lib/colecciones';
 import { cn } from '@/lib/utils';
 import { RegistroForm } from './registro-form';
 
 const MAX_FILAS = 200;
+
+// Ícono de cada categoría del catálogo (los ids están en lib/colecciones.js)
+const ICONO_CATEGORIA = {
+  ventas: ShoppingCartIcon,
+  productos: PackageIcon,
+  compras: TruckIcon,
+  personal: UsersIcon,
+};
 
 // Color de los estados (siempre acompañado del texto)
 const TONO_ESTADO = {
@@ -48,6 +70,7 @@ export function AdminView({ colecciones, schema, docs, opciones, siguienteId, ma
   const [borrando, setBorrando] = useState(false);
 
   const etiqueta = collectionLabel(schema.name);
+  const info = infoColeccion(schema.name); // categoría y descripción (lib/colecciones.js)
   const columnas = schema.fields;
 
   // Nombre de cada referencia: { roles: Map('R02' -> 'Cajero'), ... }
@@ -152,41 +175,71 @@ export function AdminView({ colecciones, schema, docs, opciones, siguienteId, ma
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[210px_minmax(0,1fr)]">
+    <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
       {/* Colecciones */}
-      <nav aria-label="Colecciones" className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-        {groupCollections(colecciones).map((g) => (
-          <div key={g.title}>
-            <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">{g.title}</p>
-            <ul className="space-y-0.5">
-              {g.items.map((c) => (
-                <li key={c.name}>
-                  <Link
-                    href={`/datos/${c.name}`}
-                    aria-current={c.name === schema.name ? 'page' : undefined}
+      {/* Colecciones agrupadas por categoría (lib/colecciones.js) */}
+      <nav aria-label="Colecciones por categoría" className="lg:sticky lg:top-18 lg:self-start">
+        <div className="divide-y rounded-xl border bg-card">
+          {groupCollections(colecciones).map((g) => {
+            const Icono = ICONO_CATEGORIA[g.id] ?? FolderIcon;
+            const activa = g.items.some((c) => c.name === schema.name);
+            const total = g.items.reduce((n, c) => n + c.count, 0);
+            return (
+              <section key={g.id} aria-labelledby={`cat-${g.id}`} className="p-2">
+                <div className="flex items-center gap-2 px-1 py-1.5">
+                  <span
                     className={cn(
-                      'flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors',
-                      c.name === schema.name
-                        ? 'bg-primary font-medium text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      'flex size-7 shrink-0 items-center justify-center rounded-lg',
+                      activa ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'
                     )}
                   >
-                    {collectionLabel(c.name)}
-                    <span className="text-xs tabular-nums opacity-70">{c.count}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+                    <Icono className="size-4" />
+                  </span>
+                  <h2 id={`cat-${g.id}`} className="min-w-0 flex-1 truncate text-sm font-semibold" title={g.descripcion}>
+                    {g.title}
+                  </h2>
+                  <span className="text-xs text-muted-foreground tabular-nums" title="Registros en la categoría">
+                    {total}
+                  </span>
+                </div>
+                {/* Las colecciones cuelgan de su categoría con una línea vertical */}
+                <ul className="mt-1 ml-[1.15rem] space-y-0.5 border-l pl-2">
+                  {g.items.map((c) => (
+                    <li key={c.name}>
+                      <Link
+                        href={`/datos/${c.name}`}
+                        aria-current={c.name === schema.name ? 'page' : undefined}
+                        className={cn(
+                          'flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors',
+                          c.name === schema.name
+                            ? 'bg-primary font-medium text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                      >
+                        {collectionLabel(c.name)}
+                        <span className="text-xs tabular-nums opacity-70">{c.count}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
       </nav>
 
       <section className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1">
+            {info && (
+              <p className="text-xs font-medium tracking-wide text-primary uppercase">
+                {info.categoria.titulo} <span className="text-muted-foreground">›</span> {etiqueta}
+              </p>
+            )}
             <h1 className="text-2xl font-semibold tracking-tight">{etiqueta}</h1>
             <p className="text-sm text-muted-foreground">
-              {docs.length} registros · clic en una fila para editarla
+              {info ? `${info.descripcion} ` : ''}
+              {docs.length} registros · clic en una fila para editarla.
             </p>
           </div>
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">

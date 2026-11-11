@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Misma forma que la administración: lista de colecciones a la izquierda y tabla a la derecha
 export default function Loading() {
   return (
-    <div className="grid gap-6 lg:grid-cols-[210px_minmax(0,1fr)]">
+    <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
       <Cargando que="la colección" />
       <div className="hidden space-y-2 lg:block" aria-hidden>
         {Array.from({ length: 14 }, (_, i) => (
