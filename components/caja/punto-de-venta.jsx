@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -19,7 +19,6 @@ import {
   WalletCardsIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import * as api from '@/lib/api';
+import { ProductoCard } from './producto-card';
 import { TicketVenta } from './ticket-venta';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/format';
@@ -45,7 +45,6 @@ const ETIQUETA_PAGO = {
   Transferencia: 'Transfer.',
   'Vales de despensa': 'Vales',
 };
-const STOCK_BAJO = 10;
 // Margen derecho igual al del texto de un <Input> (px-2.5 + 1px de borde) para alinear montos
 const MONTO = 'pr-[11px] tabular-nums';
 // Oculta las flechas de los campos numéricos (empujan el texto y rompen la alineación)
@@ -58,7 +57,7 @@ const esActivo = (c) => c?.estatus === 'Activo';
 const sugerir = (lista) => lista.find((c) => esActivo(c) && c.turno) ?? lista.find(esActivo);
 
 export function PuntoDeVenta({
-  articulos,
+  articulos: articulosServidor,
   categorias,
   cajeros: cajerosIniciales,
   cajasLibres,
@@ -137,7 +136,26 @@ export function PuntoDeVenta({
     }
   }
 
+  // Existencias locales: al cobrar se descuentan aquí al instante, sin volver a pedir el catálogo.
+  // Al cerrar el ticket se sincroniza con el servidor en segundo plano; cuando llegan los datos
+  // nuevos, este ajuste se reinicia (el servidor ya los trae descontados).
+  const [vendido, setVendido] = useState(() => new Map()); // código -> unidades vendidas
+  const [base, setBase] = useState(articulosServidor);
+  if (base !== articulosServidor) {
+    setBase(articulosServidor);
+    setVendido(new Map());
+  }
+  // Solo los artículos vendidos cambian de objeto: las demás tarjetas no se redibujan
+  const articulos = useMemo(
+    () =>
+      vendido.size === 0
+        ? articulosServidor
+        : articulosServidor.map((a) => (vendido.has(a._id) ? { ...a, stock: a.stock - vendido.get(a._id) } : a)),
+    [articulosServidor, vendido]
+  );
+
   const porCodigo = useMemo(() => new Map(articulos.map((a) => [a._id, a])), [articulos]);
+  const buscadorRef = useRef(null);
 
   const visibles = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -175,6 +193,13 @@ export function PuntoDeVenta({
           : prev.map((l) => (l.codigo === a._id ? { ...l, cantidad: nueva } : l))
     );
   }
+
+  const agregarRef = useRef(agregar);
+  useEffect(() => {
+    agregarRef.current = agregar;
+  });
+  const onAgregar = useCallback((a) => agregarRef.current(a), []);
+  const enCarritoPorCodigo = useMemo(() => new Map(carrito.map((l) => [l.codigo, l.cantidad])), [carrito]);
 
   // Enter en el buscador: agrega por código de barras exacto o si solo hay un resultado
   function handleSearchKey(e) {
@@ -230,13 +255,22 @@ export function PuntoDeVenta({
         recibido: metodo === 'Efectivo' && recibido !== '' ? Number(recibido) : null,
         cambio,
       });
+      setVendido((prev) => {
+        const m = new Map(prev);
+        for (const l of carrito) m.set(l.codigo, (m.get(l.codigo) ?? 0) + l.cantidad);
+        return m;
+      });
       limpiar();
-      router.refresh(); // existencias actualizadas
     } catch (err) {
       toast.error('No se pudo registrar la venta', { id, description: err.message });
     } finally {
       setCobrando(false);
     }
+  }
+
+  function cerrarTicket() {
+    setUltimaVenta(null);
+    startTransition(() => router.refresh()); // baja prioridad: no traba la interfaz
   }
 
   const motivoBloqueo = !esActivo(cajero)
@@ -275,6 +309,7 @@ export function PuntoDeVenta({
           <div className="relative w-full sm:w-80">
             <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              ref={buscadorRef}
               autoFocus
               placeholder="Buscar o escanear código de barras…"
               className="pl-8"
@@ -307,45 +342,9 @@ export function PuntoDeVenta({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-4">
-            {visibles.map((a) => {
-              const enCarrito = cantidadEnCarrito(a._id);
-              const disponible = a.stock - enCarrito;
-              const agotado = a.stock <= 0;
-              return (
-                <button
-                  key={a._id}
-                  type="button"
-                  disabled={agotado}
-                  onClick={() => agregar(a)}
-                  className={cn(
-                    'group relative flex flex-col gap-3 rounded-xl border bg-card p-4 text-left transition-all',
-                    'hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md',
-                    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none',
-                    enCarrito > 0 && 'border-primary ring-2 ring-primary/20'
-                  )}
-                >
-                  {enCarrito > 0 && (
-                    <span className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                      {enCarrito}
-                    </span>
-                  )}
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">{a.categoria}</p>
-                    <p className="line-clamp-2 leading-snug font-medium">{a.nombre}</p>
-                  </div>
-                  <div className="mt-auto flex items-end justify-between gap-2">
-                    <span className="text-lg font-semibold">{formatMoney(a.precio)}</span>
-                    {agotado ? (
-                      <Badge variant="destructive">Agotado</Badge>
-                    ) : (
-                      <Badge variant={disponible <= STOCK_BAJO ? 'destructive' : 'secondary'}>
-                        {disponible} disp.
-                      </Badge>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+            {visibles.map((a) => (
+              <ProductoCard key={a._id} articulo={a} enCarrito={enCarritoPorCodigo.get(a._id) ?? 0} onAgregar={onAgregar} />
+            ))}
           </div>
         )}
         </div>
@@ -615,7 +614,14 @@ export function PuntoDeVenta({
         </CardFooter>
       </Card>
 
-      <TicketVenta ticket={ultimaVenta} onClose={() => setUltimaVenta(null)} />
+      <TicketVenta
+        ticket={ultimaVenta}
+        onClose={cerrarTicket}
+        onCloseAutoFocus={(e) => {
+          e.preventDefault(); // en vez de regresar el foco al botón Cobrar, ir al buscador
+          buscadorRef.current?.focus();
+        }}
+      />
     </div>
   );
 }

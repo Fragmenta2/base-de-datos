@@ -46,6 +46,7 @@ export function GraficaBarras({ data, dataKey, label, color, formatValue, format
           }}
         />
         <Bar
+          animationDuration={350}
           dataKey={dataKey}
           fill={`var(--color-${dataKey})`}
           radius={[4, 4, 0, 0]}

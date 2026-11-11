@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { handleError } from '@/lib/http';
-import { findAll, getSchema, insertDoc } from '@/lib/pos';
+import { crearDocumento, describirColeccion } from '@/lib/admin';
 
 const notFound = () => NextResponse.json({ error: 'Colección no encontrada' }, { status: 404 });
 
+// Campos (con referencias y documentos embebidos), documentos y opciones de las listas
 export async function GET(request, { params }) {
   const { coleccion } = await params;
   try {
-    const schema = await getSchema(coleccion);
-    if (!schema) return notFound();
-    return NextResponse.json({ schema, docs: await findAll(coleccion) });
+    const datos = await describirColeccion(coleccion);
+    return datos ? NextResponse.json(datos) : notFound();
   } catch (err) {
     return handleError(err);
   }
@@ -18,9 +18,7 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   const { coleccion } = await params;
   try {
-    const schema = await getSchema(coleccion);
-    if (!schema) return notFound();
-    const doc = await insertDoc(schema, await request.json());
+    const doc = await crearDocumento(coleccion, await request.json());
     return NextResponse.json(doc, { status: 201 });
   } catch (err) {
     return handleError(err);

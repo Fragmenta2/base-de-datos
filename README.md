@@ -1,4 +1,6 @@
-# POS Minorista — Next.js + MongoDB
+# Sistema de Control de Inventarios y Punto de Venta (POS) para Comercio Minorista
+
+Next.js + MongoDB.
 
 Sistema de punto de venta sobre la base de datos `pos_minorista`, definida en
 `pos_minorista_mongodb.js`: caja para cobrar, estadísticas de ventas y mermas, inventario,
@@ -25,7 +27,8 @@ npm run dev       # terminal 2: http://localhost:3000
 | Script | Qué hace |
 |---|---|
 | `npm run dev` | Servidor de desarrollo en http://localhost:3000 |
-| `npm run build` / `npm start` | Compilación y servidor de producción |
+| `npm run prod` | **Uso diario:** compila y arranca en modo producción (mucho más fluido) |
+| `npm run build` / `npm start` | Compilación y servidor de producción por separado |
 | `npm run db` | Arranca `mongod` (busca la versión más reciente instalada; `MONGO_DBPATH` cambia la carpeta de datos) |
 | `npm run db:seed` | Ejecuta `pos_minorista_mongodb.js` con mongosh (incluido como dependencia) |
 
@@ -96,12 +99,26 @@ Plantilla del personal, **actualizada en tiempo real**.
   el estatus *Activo*, *Inactivo* o *Vacaciones*.
 - El indicador *En vivo* muestra el estado de la conexión.
 
-### Base de datos — `/datos` y `/datos/reportes`
-- **Colecciones:** las 14 colecciones agrupadas con su conteo. Cada una abre una tabla con
-  búsqueda y opciones para crear, editar y eliminar. Al hacer clic en una fila se ven los
-  documentos embebidos (detalles, pagos, movimientos, factura, entregas…).
-- **Reportes:** las tres consultas de ejemplo del script, explicadas para cualquier usuario. Cada
-  reporte dice qué pregunta responde, muestra la conclusión principal arriba y guarda la consulta
+### Administración — `/datos`
+Crear, editar y eliminar **cualquier** registro: empleados, roles, ventas, devoluciones, turnos,
+cajas, clientes, artículos, categorías, inventario, almacenes, mermas, proveedores y pedidos.
+- Panel con las 14 colecciones para cambiar entre ellas; tabla con búsqueda y orden por columna.
+- Las referencias se ven con su nombre (*Gerente* en vez de `R01`, *Almacén Central* en vez de `AL01`)
+  y los estados como etiquetas de color.
+- **Formulario en panel lateral** (clic en una fila o *Nuevo*):
+  - referencias como listas desplegables con nombres (rol, categoría, artículo, almacén, cajero,
+    turno, cliente, proveedor…); estados con sus opciones fijas; fechas con o sin hora según el campo;
+  - ID sugerido para registros nuevos (`116`, `A016`, `AL16`…);
+  - **listas embebidas editables**: detalles y pagos de ventas, detalles de devoluciones,
+    movimientos de turnos, detalles y entregas de pedidos (agregar/quitar renglones con folio
+    automático) y comprobante/factura (se activan con un interruptor).
+- **Validación:** se comprueba que cada referencia exista y MongoDB aplica su `$jsonSchema`; los
+  errores se explican por campo ("Detalles › renglón 1 › Cantidad: debe ser al menos 1").
+- **Eliminar con protección:** si el registro se usa en otra colección no se borra y se indica
+  dónde ("está en uso: 7 en ventas, 1 en inventario…").
+
+### Reportes — `/datos/reportes`
+Las tres consultas de ejemplo del script, explicadas para cualquier usuario. Cada reporte dice qué pregunta responde, muestra la conclusión principal arriba y guarda la consulta
   de MongoDB en un apartado plegable *“Ver cómo se calcula”*. Se pueden imprimir.
   1. **Detalle de ventas:** qué se vendió, a quién y quién lo atendió, con totales y promedio.
      Filtro *Mostrar* para ver una sola venta (`?venta=3`).
@@ -119,8 +136,8 @@ Plantilla del personal, **actualizada en tiempo real**.
 | PATCH | `/api/empleados/:id` | Cambia el estatus `{ estatus: "Activo" \| "Inactivo" \| "Vacaciones" }` |
 | GET | `/api/empleados/stream` | Server-Sent Events con la lista de empleados cada vez que cambia |
 | GET | `/api/colecciones` | Colecciones con su conteo |
-| GET / POST | `/api/colecciones/:coleccion` | Esquema y documentos / crear documento |
-| PUT / DELETE | `/api/colecciones/:coleccion/:id` | Actualizar / eliminar documento |
+| GET / POST | `/api/colecciones/:coleccion` | Campos (con referencias y embebidos), documentos y opciones / crear registro |
+| PUT / DELETE | `/api/colecciones/:coleccion/:id` | Actualizar / eliminar registro (409 si está en uso) |
 
 Los errores responden `{ error }` con 400 (validación), 404, 409 (valor único repetido) o
 503 (MongoDB no disponible).
@@ -132,7 +149,7 @@ app/
 ├── layout.jsx                    # barra lateral, tema claro/oscuro, toasts
 ├── page.jsx                      # redirige a /caja
 ├── caja/  estadisticas/  inventario/  empleados/
-├── datos/                        # colecciones, [coleccion] y reportes
+├── datos/                        # administración ([coleccion]) y reportes
 ├── error.jsx                     # error de página (p. ej. MongoDB apagado)
 └── api/                          # ventas, empleados (+ stream) y colecciones
 components/
@@ -141,21 +158,42 @@ components/
 ├── estadisticas/                 # vista, controles de periodo, gráfica, ventas y mermas
 ├── inventario/inventario-view.jsx
 ├── empleados/                    # vista en tiempo real, tarjeta y ficha
-├── datos/                        # tabla genérica, formulario y documentos embebidos
+├── admin/                        # administración: tabla, formulario, campos y listas embebidas
 └── ui/                           # componentes de shadcn/ui
 lib/
 ├── mongodb.js                    # conexión (Mongoose, cacheada)
 ├── caja.js                       # catálogo y registro de ventas
 ├── estadisticas.js               # agregaciones de ventas y mermas por periodo
+├── empleados-vivo.js             # estado de empleados en tiempo real compartido (SSE)
 ├── ticket.js                     # ticket de venta en PDF (jsPDF)
 ├── periodos.js                   # día / semana / mes / año: rangos, cubetas y navegación
 ├── inventario.js  empleados.js  reportes.js
-├── pos.js                        # lectura del $jsonSchema, conversión de tipos, CRUD genérico
+├── pos.js                        # lectura del $jsonSchema y conversión BSON -> JSON
+├── admin.js                      # crear/editar/eliminar con embebidos, referencias e integridad
+├── admin-config.js               # referencias, estados y nombres de cada colección
 ├── api.js                        # llamadas desde el navegador
 ├── format.js                     # formato de montos, fechas y etiquetas
 └── http.js                       # errores -> respuestas HTTP
 scripts/db.mjs                    # arranca mongod
 ```
+
+## Rendimiento
+- **Usa `npm run prod` para trabajar con la app.** `npm run dev` es para programar: compila cada
+  página la primera vez que se abre y envía JavaScript sin optimizar (~4.9 MB en la caja contra
+  ~0.8 MB en producción). Medido en esta PC, el servidor responde 3 a 10 veces más rápido en producción.
+- **Navegación instantánea:** cada vista tiene un `loading.jsx` con un esqueleto de la página.
+  Next lo precarga, así que al hacer clic en la barra lateral la vista aparece al momento
+  mientras llegan los datos.
+- **React Compiler** (`reactCompiler: true`): memoiza componentes automáticamente para que
+  escribir, sumar al carrito o cambiar filtros solo vuelva a dibujar lo necesario.
+- **Cobro sin trabas:** al cobrar, las existencias se descuentan en el navegador al instante y el
+  catálogo no se vuelve a pedir en ese momento; se sincroniza con el servidor al cerrar el ticket, en
+  segundo plano. Las tarjetas de producto están memoizadas (solo se redibuja la que cambió) y el
+  ticket conserva su contenido durante la animación de cierre. Al cerrarlo, el foco vuelve al buscador.
+- **Tiempo real compartido:** todas las pestañas abiertas en Caja o Empleados comparten una sola
+  consulta a MongoDB (`lib/empleados-vivo.js`), y un cambio de estatus hecho desde la app se avisa al instante.
+- **Índices** adicionales que la app crea al conectarse: `mermas.fecha`,
+  `turnos {estado, numero_empleado}` y `clientes.rfc`.
 
 ## Cómo funciona
 - **Fechas:** el script de carga guarda la hora local "de pared" como UTC (`"2026-10-01 10:07"` →
@@ -175,5 +213,6 @@ scripts/db.mjs                    # arranca mongod
 - **Gráficas:** cada gráfica tiene una sola serie (ingresos en azul, mermas en naranja), con
   colores validados para daltonismo y contraste en modo claro y oscuro. Cada una va acompañada
   de su tabla de datos.
-- **Llaves foráneas:** MongoDB no las valida. Si eliminas desde `/datos`, p. ej., un artículo
-  usado en ventas, la referencia queda huérfana.
+- **Llaves foráneas:** MongoDB no las valida, así que la app lo hace: al guardar comprueba que cada
+  referencia exista y al eliminar revisa quién la usa (`referenciasA` en `lib/admin-config.js`).
+  Los cambios hechos fuera de la app (mongosh, Compass) no pasan por esta revisión.

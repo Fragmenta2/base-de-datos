@@ -7,14 +7,15 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { NOMBRE_APP } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import './globals.css';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata = {
-  title: { default: 'POS Minorista', template: '%s · POS Minorista' },
-  description: 'Sistema de ventas sobre MongoDB (pos_minorista)',
+  title: { default: NOMBRE_APP, template: `%s · ${NOMBRE_APP}` },
+  description: `${NOMBRE_APP} (Next.js + MongoDB)`,
 };
 
 export default async function RootLayout({ children }) {
@@ -26,13 +27,13 @@ export default async function RootLayout({ children }) {
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <TooltipProvider>
-            <SidebarProvider defaultOpen={defaultOpen}>
+            <SidebarProvider defaultOpen={defaultOpen} style={{ '--sidebar-width': '18rem' }}>
               <AppSidebar />
               <SidebarInset>
-                <header className="app-header flex h-14 shrink-0 items-center gap-2 border-b px-4">
+                <header className="app-header sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:rounded-t-xl">
                   <SidebarTrigger className="-ml-1" />
                   <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-                  <span className="text-sm text-muted-foreground">POS Minorista</span>
+                  <span className="min-w-0 truncate text-sm text-muted-foreground">{NOMBRE_APP}</span>
                   <div className="ml-auto">
                     <ThemeToggle />
                   </div>

@@ -6,7 +6,7 @@ import { listCollections } from '@/lib/pos';
 import { collectionLabel, groupCollections } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Colecciones' };
+export const metadata = { title: 'Administración' };
 
 export default async function DatosPage() {
   const collections = await listCollections();
@@ -14,8 +14,8 @@ export default async function DatosPage() {
   return (
     <>
       <PageHeader
-        title="Colecciones"
-        description={`Base de datos pos_minorista · ${collections.length} colecciones`}
+        title="Administración"
+        description="Elige qué quieres administrar: crea, edita o elimina empleados, ventas, artículos, inventario y todo lo demás."
       />
       {collections.length === 0 && (
         <p className="text-muted-foreground">

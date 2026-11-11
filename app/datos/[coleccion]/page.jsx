@@ -1,18 +1,18 @@
 import { notFound } from 'next/navigation';
-import { CollectionView } from '@/components/datos/collection-view';
-import { findAll, getSchema } from '@/lib/pos';
+import { AdminView } from '@/components/admin/admin-view';
+import { describirColeccion } from '@/lib/admin';
+import { listCollections } from '@/lib/pos';
 import { collectionLabel } from '@/lib/format';
 
 export async function generateMetadata({ params }) {
   const { coleccion } = await params;
-  return { title: collectionLabel(coleccion) };
+  return { title: `${collectionLabel(coleccion)} · Administración` };
 }
 
-export default async function CollectionPage({ params }) {
+export default async function AdministrarColeccion({ params }) {
   const { coleccion } = await params;
-  const schema = await getSchema(coleccion);
-  if (!schema) notFound();
-  const docs = await findAll(coleccion);
+  const [datos, colecciones] = await Promise.all([describirColeccion(coleccion), listCollections()]);
+  if (!datos) notFound();
 
-  return <CollectionView schema={schema} docs={docs} />;
+  return <AdminView colecciones={colecciones} {...datos} />;
 }

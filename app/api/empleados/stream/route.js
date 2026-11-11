@@ -1,56 +1,40 @@
-import { getEmpleados } from '@/lib/empleados';
+import { suscribir } from '@/lib/empleados-vivo';
 
 export const dynamic = 'force-dynamic';
 
-const INTERVALO_MS = 1500;
 const LATIDO_MS = 15_000;
 
 /**
- * Server-Sent Events con la lista de empleados.
- * Los change streams de MongoDB requieren un replica set y el servidor local es standalone,
- * así que se consulta la colección cada 1.5 s y solo se envía cuando algo cambió
- * (también detecta cambios hechos fuera de la app, p. ej. desde Compass o mongosh).
+ * Server-Sent Events con la lista de empleados cada vez que cambia.
+ * Todas las conexiones comparten una sola consulta a MongoDB (ver lib/empleados-vivo.js).
  */
 export async function GET(request) {
   const encoder = new TextEncoder();
-  let timer;
+  let cancelar = () => {};
   let latido;
 
   const stream = new ReadableStream({
-    async start(controller) {
-      let ultimo = '';
+    start(controller) {
       let cerrado = false;
-
       const send = (text) => {
         if (!cerrado) controller.enqueue(encoder.encode(text));
       };
       const cerrar = () => {
         if (cerrado) return;
         cerrado = true;
-        clearInterval(timer);
+        cancelar();
         clearInterval(latido);
         controller.close();
       };
 
-      const revisar = async () => {
-        try {
-          const json = JSON.stringify(await getEmpleados());
-          if (json !== ultimo) {
-            ultimo = json;
-            send(`event: empleados\ndata: ${json}\n\n`);
-          }
-        } catch {
-          send(`event: error-bd\ndata: {}\n\n`);
-        }
-      };
-
-      request.signal.addEventListener('abort', cerrar);
-      await revisar();
-      timer = setInterval(revisar, INTERVALO_MS);
+      cancelar = suscribir((msg) =>
+        send(msg.tipo === 'empleados' ? `event: empleados\ndata: ${msg.json}\n\n` : `event: error-bd\ndata: {}\n\n`)
+      );
       latido = setInterval(() => send(': latido\n\n'), LATIDO_MS);
+      request.signal.addEventListener('abort', cerrar);
     },
     cancel() {
-      clearInterval(timer);
+      cancelar();
       clearInterval(latido);
     },
   });

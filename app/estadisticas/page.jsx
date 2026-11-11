@@ -12,14 +12,26 @@ export default async function EstadisticasPage({ searchParams }) {
   const vista = sp.vista === 'mermas' ? 'mermas' : 'ventas';
   const escala = ESCALAS.some((e) => e.value === sp.escala) ? sp.escala : 'mes';
 
-  const dias = await diasConRegistros(vista);
-  // Por defecto se abre el último día con registros para no mostrar un periodo vacío
-  const fecha = parseKey(sp.fecha) ?? parseKey(dias.at(-1)) ?? parseKey(hoy());
+  const cargarDatos = (periodo, anterior) =>
+    vista === 'mermas' ? estadisticasMermas(periodo, anterior) : estadisticasVentas(periodo, anterior);
 
-  const periodo = getPeriodo(escala, fecha);
-  const anterior = getPeriodo(escala, parseKey(periodo.prev));
-  const datos =
-    vista === 'mermas' ? await estadisticasMermas(periodo, anterior) : await estadisticasVentas(periodo, anterior);
+  // Con fecha en la URL todo se consulta en paralelo; sin ella, primero se busca el último día
+  // con registros para no abrir un periodo vacío.
+  const fechaUrl = parseKey(sp.fecha);
+  let dias, fecha, periodo, datos;
+  if (fechaUrl) {
+    fecha = fechaUrl;
+    periodo = getPeriodo(escala, fecha);
+    [dias, datos] = await Promise.all([
+      diasConRegistros(vista),
+      cargarDatos(periodo, getPeriodo(escala, parseKey(periodo.prev))),
+    ]);
+  } else {
+    dias = await diasConRegistros(vista);
+    fecha = parseKey(dias.at(-1)) ?? parseKey(hoy());
+    periodo = getPeriodo(escala, fecha);
+    datos = await cargarDatos(periodo, getPeriodo(escala, parseKey(periodo.prev)));
+  }
 
   const { start, end, ...periodoCliente } = periodo;
 

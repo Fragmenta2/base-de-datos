@@ -15,7 +15,6 @@ import {
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -26,6 +25,7 @@ import {
   SidebarRail,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
+import { NOMBRE_APP } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 const NAV = [
@@ -36,7 +36,7 @@ const NAV = [
   {
     label: 'Base de datos',
     items: [
-      { title: 'Colecciones', href: '/datos', icon: DatabaseIcon, exact: true },
+      { title: 'Administración', href: '/datos', icon: DatabaseIcon, exact: true },
       { title: 'Reportes', href: '/datos/reportes', icon: FileTextIcon },
     ],
   },
@@ -66,14 +66,14 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild tooltip="POS Minorista">
+            <SidebarMenuButton size="lg" asChild tooltip={NOMBRE_APP} className="h-auto min-h-12 py-2">
               <Link href="/caja">
                 <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
                   <StoreIcon className="size-4" />
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">POS Minorista</span>
-                  <span className="truncate text-xs text-muted-foreground">Sistema de ventas</span>
+                {/* div (no span): el botón de shadcn recorta con "…" su último span */}
+                <div className="min-w-0 flex-1 text-left text-sm leading-snug font-semibold whitespace-normal">
+                  {NOMBRE_APP}
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -107,15 +107,6 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
-        <div
-          title="MongoDB · pos_minorista"
-          className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
-        >
-          <DatabaseIcon className="size-3.5 shrink-0" />
-          <span className="truncate group-data-[collapsible=icon]:hidden">MongoDB · pos_minorista</span>
-        </div>
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

@@ -1,21 +1,28 @@
 'use client';
 
+import { useState } from 'react';
 import { CheckCircle2Icon, DownloadIcon, PrinterIcon, StoreIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { formatFechaHora, formatMoney } from '@/lib/format';
+import { formatFechaHora, formatMoney, NOMBRE_APP } from '@/lib/format';
 
 /**
  * Comprobante de una venta recién cobrada, con el desglose de cada artículo.
  * `ticket` = { venta, lineas: [{ nombre, cantidad, precio_unitario, importe }], cajero, caja, cliente, recibido, cambio }
  */
-export function TicketVenta({ ticket, onClose }) {
+export function TicketVenta({ ticket: ticketActual, onClose, onCloseAutoFocus }) {
+  // Se conserva el último ticket mientras el diálogo hace su animación de salida;
+  // si no, el contenido desaparece de golpe y el diálogo se encoge vacío antes de cerrarse.
+  const [ultimo, setUltimo] = useState(ticketActual);
+  if (ticketActual && ticketActual !== ultimo) setUltimo(ticketActual);
+  const ticket = ticketActual ?? ultimo;
+
   const venta = ticket?.venta;
   const piezas = ticket?.lineas.reduce((s, l) => s + l.cantidad, 0) ?? 0;
 
   return (
-    <Dialog open={!!ticket} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md">
+    <Dialog open={!!ticketActual} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader className="items-center text-center">
           <CheckCircle2Icon className="size-10 text-success" />
           <DialogTitle>Venta registrada</DialogTitle>
@@ -26,7 +33,7 @@ export function TicketVenta({ ticket, onClose }) {
           <div className="rounded-lg border bg-background p-5 font-mono text-[13px] leading-relaxed">
             <div className="flex flex-col items-center gap-1 text-center">
               <StoreIcon className="size-6" />
-              <p className="text-base font-bold tracking-wide">POS MINORISTA</p>
+              <p className="text-sm leading-snug font-bold tracking-wide uppercase">{NOMBRE_APP}</p>
               <p className="text-xs text-muted-foreground">
                 {venta.comprobante.tipo} {venta.comprobante.folio}
               </p>
