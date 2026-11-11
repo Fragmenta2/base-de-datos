@@ -38,7 +38,27 @@ Todas se navegan desde la barra lateral, que se puede contraer a íconos. Hay mo
 Punto de venta para cobrar.
 - Cuadrícula de productos activos con precio y existencias; filtro por categoría y buscador.
   **Enter** en el buscador agrega el producto por código de barras exacto (o si solo hay un resultado).
-- Ticket con turno abierto (caja y cajero), cliente, cantidades, descuento y total.
+- Ticket con cajero, cantidades, descuento y total. No se pide cliente: las ventas se registran a nombre de
+  *Público en General* (RFC genérico `XAXX010101000`). La API acepta `numero_socio` si se quiere indicar otro.
+- **Cajeros:** el selector muestra a todos los empleados con rol *Cajero* o *Cajero senior* (y a
+  cualquiera con un turno abierto), con su caja o "sin turno". **Solo se pueden elegir los que
+  tienen estatus Activo**; los demás aparecen deshabilitados con su estatus. La caja recibe los
+  cambios de estatus en tiempo real: si el cajero elegido deja de estar activo, cambia sola al
+  siguiente y lo avisa. El servidor también rechaza la venta si el cajero no está activo.
+- **Diseño:** en pantallas grandes la caja ocupa la ventana completa y los productos hacen scroll por
+  dentro. En el ticket solo hace scroll la lista de artículos; subtotal, descuento, total, método de pago,
+  recibido/cambio, comprobante y el botón **Cobrar** (grande, con el total) quedan siempre visibles.
+  Si no se puede cobrar, debajo se explica por qué (sin cajero activo, sin turno, el recibido no alcanza).
+- **Ticket de venta:** al cobrar se muestra el comprobante con el desglose completo (folio, fecha,
+  caja, quién atendió, cliente, cada artículo con cantidad × precio e importe, subtotal, descuento,
+  total, forma de pago, recibido y cambio).
+- **Ticket en PDF:** *Imprimir PDF* abre el ticket como PDF real (80 mm de ancho, alto según los
+  artículos) y lanza el diálogo de impresión; *Descargar PDF* lo guarda como `ticket-<folio>.pdf`.
+  El PDF se genera en el servidor con jsPDF a partir de lo guardado en MongoDB, así que cualquier
+  venta se puede reimprimir (en *Reportes*, el folio de cada venta abre su ticket). En pagos en
+  efectivo se guardan también `recibido` y `cambio` dentro del pago para que el ticket los muestre.
+- **Abrir turno:** si el cajero activo no tiene turno, se le abre uno desde la misma caja,
+  eligiendo una caja libre (estado "Abierta" y sin turno abierto) y el fondo inicial ($1,000 por defecto).
 - Métodos de pago: efectivo (con cálculo de cambio), tarjeta de débito o crédito, transferencia y vales.
   Comprobante tipo Ticket o Factura.
 - Al cobrar, el servidor recalcula los precios desde la base de datos, descuenta el inventario,
@@ -71,7 +91,7 @@ Plantilla del personal, **actualizada en tiempo real**.
 - Los empleados activos aparecen primero y destacados en *Activos ahora*; el resto, en *Fuera de turno*.
 - Cada tarjeta tiene un interruptor para marcarse como activo o inactivo. El cambio llega al
   instante a todas las pestañas abiertas, y las demás reciben un aviso
-  ("Laura Sánchez ahora está activa"). También detecta cambios hechos fuera de la app, como Compass o mongosh.
+  ("Laura Sánchez Vega ahora está en estatus Activo"). También detecta cambios hechos fuera de la app, como Compass o mongosh.
 - La ficha muestra CURP, RFC, fecha de ingreso, antigüedad, horario y salario, y permite elegir
   el estatus *Activo*, *Inactivo* o *Vacaciones*.
 - El indicador *En vivo* muestra el estado de la conexión.
@@ -80,15 +100,22 @@ Plantilla del personal, **actualizada en tiempo real**.
 - **Colecciones:** las 14 colecciones agrupadas con su conteo. Cada una abre una tabla con
   búsqueda y opciones para crear, editar y eliminar. Al hacer clic en una fila se ven los
   documentos embebidos (detalles, pagos, movimientos, factura, entregas…).
-- **Reportes:** las tres consultas de ejemplo del script:
-  1. Ventas con cliente, cajero y artículos (`$lookup`), filtrables por venta (`?venta=3`).
-  2. Alerta de reabasto: `cantidad_disponible < stock_minimo × factor`, ajustable con `?factor=3`.
-  3. Total vendido por método de pago (`$unwind` + `$group`).
+- **Reportes:** las tres consultas de ejemplo del script, explicadas para cualquier usuario. Cada
+  reporte dice qué pregunta responde, muestra la conclusión principal arriba y guarda la consulta
+  de MongoDB en un apartado plegable *“Ver cómo se calcula”*. Se pueden imprimir.
+  1. **Detalle de ventas:** qué se vendió, a quién y quién lo atendió, con totales y promedio.
+     Filtro *Mostrar* para ver una sola venta (`?venta=3`).
+  2. **Productos por reabastecer:** lo que se está acabando, cuánto falta para el mínimo y cuánto
+     conviene pedir. Filtro *Nivel de alerta*: Urgente (debajo del mínimo), Pronto (menos de 1.5 × el
+     mínimo, por defecto) o Preventivo (menos de 3 ×) (`?nivel=urgente|pronto|preventivo`).
+  3. **¿Cómo pagan los clientes?:** dinero cobrado por forma de pago, con su porcentaje y la más usada.
 
 ## API
 | Método | Ruta | Descripción |
 |---|---|---|
-| POST | `/api/ventas` | Registra una venta `{ numero_turno, numero_socio, items: [{ codigo_articulo, cantidad }], descuento, metodo_pago, tipo_comprobante }` |
+| POST | `/api/ventas` | Registra una venta `{ numero_turno, numero_socio?, items: [{ codigo_articulo, cantidad }], descuento, metodo_pago, recibido?, tipo_comprobante }` |
+| GET | `/api/ventas/:id/ticket` | Ticket de la venta en PDF (`?imprimir=1` abre el diálogo de impresión, `?descargar=1` lo descarga) |
+| POST | `/api/turnos` | Abre un turno `{ numero_empleado, numero_caja, saldo_inicial }` para un cajero activo sin turno |
 | PATCH | `/api/empleados/:id` | Cambia el estatus `{ estatus: "Activo" \| "Inactivo" \| "Vacaciones" }` |
 | GET | `/api/empleados/stream` | Server-Sent Events con la lista de empleados cada vez que cambia |
 | GET | `/api/colecciones` | Colecciones con su conteo |
@@ -120,6 +147,7 @@ lib/
 ├── mongodb.js                    # conexión (Mongoose, cacheada)
 ├── caja.js                       # catálogo y registro de ventas
 ├── estadisticas.js               # agregaciones de ventas y mermas por periodo
+├── ticket.js                     # ticket de venta en PDF (jsPDF)
 ├── periodos.js                   # día / semana / mes / año: rangos, cubetas y navegación
 ├── inventario.js  empleados.js  reportes.js
 ├── pos.js                        # lectura del $jsonSchema, conversión de tipos, CRUD genérico

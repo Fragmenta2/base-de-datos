@@ -1,4 +1,5 @@
 import { Geist } from 'next/font/google';
+import { cookies } from 'next/headers';
 import { AppSidebar } from '@/components/app-sidebar';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -16,16 +17,19 @@ export const metadata = {
   description: 'Sistema de ventas sobre MongoDB (pos_minorista)',
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // shadcn guarda en esta cookie si la barra lateral está abierta; leerla evita el parpadeo al recargar
+  const defaultOpen = (await cookies()).get('sidebar_state')?.value !== 'false';
+
   return (
     <html lang="es" className={cn('font-sans', geist.variable)} suppressHydrationWarning>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <TooltipProvider>
-            <SidebarProvider>
+            <SidebarProvider defaultOpen={defaultOpen}>
               <AppSidebar />
               <SidebarInset>
-                <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+                <header className="app-header flex h-14 shrink-0 items-center gap-2 border-b px-4">
                   <SidebarTrigger className="-ml-1" />
                   <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
                   <span className="text-sm text-muted-foreground">POS Minorista</span>

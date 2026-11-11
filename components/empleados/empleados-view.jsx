@@ -54,8 +54,8 @@ export function EmpleadosView({ inicial }) {
         const antes = anteriores.current.get(e._id);
         if (antes && antes !== e.estatus && !propios.current.delete(`${e._id}:${e.estatus}`)) {
           const msg = `${e.nombre} ${e.apellidos}`;
-          if (e.estatus === 'Activo') toast.success(`${msg} ahora está activo`);
-          else toast.info(`${msg} cambió a ${e.estatus.toLowerCase()}`);
+          if (e.estatus === 'Activo') toast.success(`${msg} ahora está en estatus Activo`);
+          else toast.info(`${msg} cambió su estatus a ${e.estatus}`);
         }
         anteriores.current.set(e._id, e.estatus);
       }
@@ -72,8 +72,7 @@ export function EmpleadosView({ inicial }) {
     setEmpleados((prev) => prev.map((e) => (e._id === empleado._id ? { ...e, estatus } : e)));
     try {
       await api.cambiarEstatus(empleado._id, estatus);
-      if (estatus === 'Activo') toast.success(`${nombre} ahora está activo`);
-      else toast.success(`${nombre} marcado como ${estatus.toLowerCase()}`);
+      toast.success('Estatus actualizado', { description: `${nombre} → ${estatus}` });
     } catch (err) {
       propios.current.delete(`${empleado._id}:${estatus}`);
       setEmpleados((prev) => prev.map((e) => (e._id === empleado._id ? { ...e, estatus: previo } : e)));
@@ -120,7 +119,7 @@ export function EmpleadosView({ inicial }) {
         </h2>
         {activos.length === 0 ? (
           <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Nadie está activo en este momento.
+            Nadie tiene estatus Activo en este momento.
           </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

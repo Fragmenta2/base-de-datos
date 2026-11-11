@@ -136,3 +136,11 @@
     @apply font-sans;
     }
 }
+/* Impresión de páginas (p. ej. reportes): se oculta la navegación. El ticket se imprime como PDF. */
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  .app-header {
+    display: none !important;
+  }
+}
